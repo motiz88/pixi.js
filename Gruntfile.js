@@ -124,7 +124,7 @@ module.exports = function(grunt) {
                 banner: banner
             },
             dist: {
-                src: srcFiles,
+                src: [/*require.resolve('canvas-text-metrics-polyfill'), */srcFiles],
                 dest: '<%= files.build %>'
             }
         },
