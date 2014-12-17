@@ -1,4 +1,15 @@
 /**
+ * @license
+ * pixi.js - v2.2.0-motiz88
+ * Copyright (c) 2012-2014, Mat Groves
+ * http://goodboydigital.com/
+ *
+ * Compiled: 2014-12-17
+ *
+ * pixi.js is licensed under the MIT License.
+ * http://www.opensource.org/licenses/mit-license.php
+ */
+/**
  * @author Mat Groves http://matgroves.com/ @Doormat23
  */
 
@@ -3330,16 +3341,44 @@ PIXI.Text.prototype.updateText = function()
     //split text into lines
     var lines = outputText.split(/(?:\r\n|\r|\n)/);
 
-    //calculate text width
-    var lineWidths = [];
+	//calculate text width
+    var lineWidths = [], lineMetrics = [], baselinePositionsY = [];
     var maxLineWidth = 0;
     var fontProperties = this.determineFontProperties(this.style.font);
+	
+	var leading = fontProperties.fontSize;
+	
+	var height = 0 ;
+	
     for (var i = 0; i < lines.length; i++)
     {
-        var lineWidth = this.context.measureText(lines[i]).width;
-        lineWidths[i] = lineWidth;
-        maxLineWidth = Math.max(maxLineWidth, lineWidth);
+        var metrics = this.context.measureText(lines[i],{width:true, actualBoundingBoxAscent: true, actualBoundingBoxDescent: true});
+		var lineAscent = fontProperties.ascent;
+		if (metrics.hasOwnProperty('actualBoundingBoxAscent'))
+			lineAscent = metrics.actualBoundingBoxAscent;
+        lineWidths[i] = metrics.width;
+		lineMetrics[i] = metrics;
+        maxLineWidth = Math.max(maxLineWidth,  lineWidths[i]);
+		
+		if (i===0)
+		{
+			height += (baselinePositionsY[i] = lineAscent);
+		}
+		else
+		{
+			baselinePositionsY[i] = height;
+			height += leading;
+		}
+		
+		height += this.style.strokeThickness;
     }
+	if (lines.length)
+	{
+		var lastLineDescent = fontProperties.descent;
+		if (lineMetrics[lines.length-1].hasOwnProperty('actualBoundingBoxDescent'))
+			lastLineDescent = lineMetrics[lines.length-1].actualBoundingBoxDescent;
+		height += lastLineDescent;
+	}
 
     var width = maxLineWidth + this.style.strokeThickness;
     if(this.style.dropShadow)width += this.style.dropShadowDistance;
@@ -3347,9 +3386,10 @@ PIXI.Text.prototype.updateText = function()
     this.canvas.width = ( width + this.context.lineWidth ) * this.resolution;
     
     //calculate text height
-    var lineHeight = fontProperties.fontSize + this.style.strokeThickness;
+    //var lineHeight = fontProperties.fontSize + this.style.strokeThickness;
+	//var lineHeight = lines.length ? (height / lines.length) : 0;
  
-    var height = lineHeight * lines.length;
+    //var height = lineHeight * lines.length;
     if(this.style.dropShadow)height += this.style.dropShadowDistance;
 
     this.canvas.height = height * this.resolution;
@@ -3358,10 +3398,6 @@ PIXI.Text.prototype.updateText = function()
 
     if(navigator.isCocoonJS) this.context.clearRect(0,0,this.canvas.width,this.canvas.height);
     
-    // used for debugging..
-    //this.context.fillStyle ="#FF0000"
-    //this.context.fillRect(0, 0, this.canvas.width,this.canvas.height);
-
     this.context.font = this.style.font;
     this.context.strokeStyle = this.style.stroke;
     this.context.lineWidth = this.style.strokeThickness;
@@ -3381,7 +3417,7 @@ PIXI.Text.prototype.updateText = function()
         for (i = 0; i < lines.length; i++)
         {
             linePositionX = this.style.strokeThickness / 2;
-            linePositionY = (this.style.strokeThickness / 2 + i * lineHeight) + fontProperties.ascent;
+            linePositionY = this.style.strokeThickness / 2 + baselinePositionsY[i]; //(this.style.strokeThickness / 2 + i * lineHeight) + fontProperties.ascent;
 
             if(this.style.align === 'right')
             {
@@ -3408,7 +3444,7 @@ PIXI.Text.prototype.updateText = function()
     for (i = 0; i < lines.length; i++)
     {
         linePositionX = this.style.strokeThickness / 2;
-        linePositionY = (this.style.strokeThickness / 2 + i * lineHeight) + fontProperties.ascent;
+        linePositionY = this.style.strokeThickness / 2 + baselinePositionsY[i]; //(this.style.strokeThickness / 2 + i * lineHeight) + fontProperties.ascent;
 
         if(this.style.align === 'right')
         {
@@ -3504,94 +3540,103 @@ PIXI.Text.prototype._renderCanvas = function(renderSession)
 */
 PIXI.Text.prototype.determineFontProperties = function(fontStyle)
 {
-    var properties = PIXI.Text.fontPropertiesCache[fontStyle];
+	var properties = PIXI.Text.fontPropertiesCache[fontStyle];
 
     if(!properties)
     {
         properties = {};
         
-        var canvas = PIXI.Text.fontPropertiesCanvas;
         var context = PIXI.Text.fontPropertiesContext;
 
         context.font = fontStyle;
+		var metrics = context.measureText('|Mq', {fontBoundingBoxAscent: true, fontBoundingBoxDescent: true});
+		
+        
+		
+		if (metrics.hasOwnProperty('fontBoundingBoxAscent'))
+		{
+			properties.ascent = metrics.fontBoundingBoxAscent |0;
+			properties.descent = metrics.fontBoundingBoxDescent |0;
+		}
+		else
+		{
+			var canvas = PIXI.Text.fontPropertiesCanvas;
+			var width = Math.ceil(metrics.width);
+			var baseline = Math.ceil(context.measureText('M',{width:true}).width);
+			var height = 2 * baseline;
 
-        var width = Math.ceil(context.measureText('|Mq').width);
-        var baseline = Math.ceil(context.measureText('M').width);
-        var height = 2 * baseline;
+			baseline = baseline * 1.4 | 0;
 
-        baseline = baseline * 1.4 | 0;
+			canvas.width = width;
+			canvas.height = height;
 
-        canvas.width = width;
-        canvas.height = height;
+			context.fillStyle = '#f00';
+			context.fillRect(0, 0, width, height);
 
-        context.fillStyle = '#f00';
-        context.fillRect(0, 0, width, height);
+			context.font = fontStyle;
 
-        context.font = fontStyle;
+			context.textBaseline = 'alphabetic';
+			context.fillStyle = '#000';
+			context.fillText('|Mq', 0, baseline);
 
-        context.textBaseline = 'alphabetic';
-        context.fillStyle = '#000';
-        context.fillText('|MÉq', 0, baseline);
+			var imagedata = context.getImageData(0, 0, width, height).data;
+			var pixels = imagedata.length;
+			var line = width * 4;
 
-        var imagedata = context.getImageData(0, 0, width, height).data;
-        var pixels = imagedata.length;
-        var line = width * 4;
+			var i, j;
 
-        var i, j;
+			var idx = 0;
+			var stop = false;
 
-        var idx = 0;
-        var stop = false;
+			// ascent. scan from top to bottom until we find a non red pixel
+			for(i = 0; i < baseline; i++)
+			{
+				for(j = 0; j < line; j += 4)
+				{
+					if(imagedata[idx + j] !== 255)
+					{
+						stop = true;
+						break;
+					}
+				}
+				if(!stop)
+				{
+					idx += line;
+				}
+				else
+				{
+					break;
+				}
+			}
 
-        // ascent. scan from top to bottom until we find a non red pixel
-        for(i = 0; i < baseline; i++)
-        {
-            for(j = 0; j < line; j += 4)
-            {
-                if(imagedata[idx + j] !== 255)
-                {
-                    stop = true;
-                    break;
-                }
-            }
-            if(!stop)
-            {
-                idx += line;
-            }
-            else
-            {
-                break;
-            }
-        }
+			properties.ascent = baseline - i;
 
-        properties.ascent = baseline - i;
+			idx = pixels - line;
+			stop = false;
 
-        idx = pixels - line;
-        stop = false;
+			// descent. scan from bottom to top until we find a non red pixel
+			for(i = height; i > baseline; i--)
+			{
+				for(j = 0; j < line; j += 4)
+				{
+					if(imagedata[idx + j] !== 255)
+					{
+						stop = true;
+						break;
+					}
+				}
+				if(!stop)
+				{
+					idx -= line;
+				}
+				else
+				{
+					break;
+				}
+			}
 
-        // descent. scan from bottom to top until we find a non red pixel
-        for(i = height; i > baseline; i--)
-        {
-            for(j = 0; j < line; j += 4)
-            {
-                if(imagedata[idx + j] !== 255)
-                {
-                    stop = true;
-                    break;
-                }
-            }
-            if(!stop)
-            {
-                idx -= line;
-            }
-            else
-            {
-                break;
-            }
-        }
-
-        properties.descent = i - baseline;
-        //TODO might need a tweak. kind of a temp fix!
-        properties.descent += 6;
+			properties.descent = i - baseline;
+		}
         properties.fontSize = properties.ascent + properties.descent;
 
         PIXI.Text.fontPropertiesCache[fontStyle] = properties;
@@ -3620,8 +3665,8 @@ PIXI.Text.prototype.wordWrap = function(text)
         var words = lines[i].split(' ');
         for (var j = 0; j < words.length; j++)
         {
-            var wordWidth = this.context.measureText(words[j]).width;
-            var wordWidthWithSpace = wordWidth + this.context.measureText(' ').width;
+            var wordWidth = this.context.measureText(words[j],{width:true}).width;
+            var wordWidthWithSpace = wordWidth + this.context.measureText(' ',{width:true}).width;
             if(j === 0 || wordWidthWithSpace > spaceLeft)
             {
                 // Skip printing the newline if it's the first word of the line that is
@@ -20090,4 +20135,3 @@ Object.defineProperty(PIXI.RGBSplitFilter.prototype, 'blue', {
         root.PIXI = PIXI;
     }
 }).call(this);
-//# sourceMappingURL=pixi.dev.js.map
