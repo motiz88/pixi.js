@@ -1,6 +1,6 @@
 {
     "name": "pixi.js",
-    "version": "2.2.0-motiz88",
+    "version": "2.2.7-motiz88",
     "description": "Pixi.js is a fast lightweight 2D library that works across all devices.",
 
     "author": "Mat Groves",
@@ -24,7 +24,6 @@
     "scripts": {
         "test": "grunt travis --verbose"
     },
-
     "devDependencies": {
         "grunt": "~0.4.1",
         "grunt-contrib-jshint": "~0.8",
